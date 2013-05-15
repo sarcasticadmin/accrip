@@ -67,14 +67,15 @@ int main(int argc, char** argv)
     int r;
     
     if(argc <= 1)
-        bailOut("%s: [-d disc#] [-o pregap-offset] [-s shift-samples] [-t] [-v] [-r|-x] /path/to/album/flacs [/path/to/more/album/flacs]\n\n" \
+        bailOut("%s: [-d disc#] [-o pregap-offset] [-s shift-samples] [-a disc-id] [-t] [-v] [-r|-x] /path/to/album/flacs [/path/to/more/album/flacs]\n\n" \
                 "  -v         verbose\n" \
                 "  -x         do not check AccurateRip database\n" \
                 "  -r         do not calculate CRC values\n" \
                 "  -o offset  first-track offset (sector) for computing DiscID\n" \
                 "  -s shift   number of samples to shift\n" \
                 "  -t         skip final 4608 samples (old FLAC padding)\n" \
-                "  -d num     only use tracks with DISCNUMBER=#\n",
+                "  -d num     only use tracks with DISCNUMBER=#\n" \
+                "  -a discid  force AccurateRip disc ID\n",
                 argv[0]);
 
     int optcmd,optnum;
@@ -82,13 +83,14 @@ int main(int argc, char** argv)
     FLAC__int32 pregap = 0;
     int shiftSamples = 0;
     int discNumber = 0;
+    char *discId = NULL;
     FLAC__uint32 trimSamples = 0;
     ArFLAC_bool verbose = false;
     ArFLAC_bool only_check_for_record = false;
     ArFLAC_bool no_Ar_compare = false;
         
     opterr = 0;
-    while ((optcmd = getopt (argc, argv, "o:s:d:rtvx")) != -1) {
+    while ((optcmd = getopt (argc, argv, "a:o:s:d:rtvx")) != -1) {
         switch (optcmd) {
             case 'o':
                 pregap = strtoul(optarg, &optptr, 10);
@@ -117,6 +119,9 @@ int main(int argc, char** argv)
                 discNumber = strtoul(optarg, &optptr, 10);
                 if (*optptr || discNumber < 1)
                     bailOut("Option -d requires a disc number.");
+                break;
+            case 'a':
+                discId = optarg;
                 break;
             case '?':
                 if (optopt == 'o')
@@ -200,8 +205,14 @@ int main(int argc, char** argv)
         if (trimSamples)
             printMsg ("Ignoring final ~4608 samples");
 
-        
-        if(ArFLAC_generateDiscIds(disc))
+        if (discId)
+        {
+            disc->ArIdAddn = strtol(discId, (char**) discId+8, 16);
+            disc->ArIdMult = strtol(discId+9, (char**) discId+17, 16);
+            disc->CDDBId = strtol(discId+18, (char**) discId+26, 16);
+            printTxt("\n[Disc ID: %08x-%08x-%08x] ", disc->ArIdAddn, disc->ArIdMult, disc->CDDBId);
+        }
+        else if(ArFLAC_generateDiscIds(disc))
         {
             printTxt("\n[Disc ID: %08x-%08x-%08x] ", disc->ArIdAddn, disc->ArIdMult, disc->CDDBId);
         }
